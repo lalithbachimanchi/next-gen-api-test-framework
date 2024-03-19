@@ -1,0 +1,15 @@
+
+[server]
+port = 80
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+primaryColor="#ec0d47"
+backgroundColor="#fbf1f1"
+secondaryBackgroundColor="#c7cad0"
+textColor="#00010a"
+font="monospace"
+
+

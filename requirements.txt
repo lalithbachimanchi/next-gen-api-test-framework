@@ -1,0 +1,6 @@
+openai
+streamlit==1.31.0
+watchdog
+glom
+jinja2
+html2text

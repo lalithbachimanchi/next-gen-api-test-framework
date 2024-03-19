@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+    <h1>Generate automation test code for the following API in {{framework}} framework:</h1>
+    <p>API Base URL: {{base_url}}</p>
+    <p>Endpoint: {{end_point}} </p>
+    {% for item in prompts %}
+        <h2>Test Scenario {{loop.index}}</h2>
+        <ul>
+            <li> HTTP Method: {{item['method']}}</li>
+            <li> Response Codes: {{item['response_codes']}}</li>
+            {% if 'request_body' in item %}
+                <li>Request Body: {{item['request_body']}}</li>
+            {% endif %}
+        </ul>
+        {% endfor %}
+        <h3>Generate test code for each scenario and include any additional requirements or constraints that need to be considered. </h3>
+</body>
+</html>
