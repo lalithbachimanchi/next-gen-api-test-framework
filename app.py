@@ -1,6 +1,12 @@
 import datetime
-
+import replicate
 import streamlit as st
+from langchain_google_genai import ChatGoogleGenerativeAI
+import google.generativeai as genai
+import os
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+from langchain_openai import OpenAI
 import openai
 from openai import OpenAI
 import os
@@ -25,7 +31,7 @@ model = os.environ.get('OPENAI_MODEL', 'gpt-3.5-turbo')
 
 
 @st.cache_data
-def langchain_output(prompt):
+def gpt_response(prompt):
 
     messages = [{"role": "system",
                  "content": " Generate programming code. Dont give explanation"}]
@@ -37,7 +43,7 @@ def langchain_output(prompt):
 
     print(messages)
     try:
-        client = OpenAI(api_key=api_key, organization=org_id)
+        client = OpenAI(api_key=st.session_state['AUTH_KEY'])
 
         response = client.chat.completions.create(
             model=model,
@@ -55,7 +61,65 @@ def langchain_output(prompt):
         return None
 
 
-# @st.cache_data
+@st.cache_data
+def gemini_response(prompt):
+
+    genai.configure(api_key=st.session_state['AUTH_KEY'])
+
+    model = genai.GenerativeModel('gemini-pro')
+    response = model.generate_content(prompt)
+
+    print(response.text)
+
+    return response.text
+
+
+def generate_resp_from_llm(model, prompt):
+
+    # llm = None
+
+    if model == 'LLAMA2':
+
+        os.environ['REPLICATE_API_TOKEN'] = st.session_state['REPLICATE_API_TOKEN']
+
+        output = replicate.run(
+            "replicate/llama-7b:ac808388e2e9d8ed35a5bf2eaa7d83f0ad53f9e3df31a42e4eb0a0c3249b3165",
+            input={
+                "debug": False,
+                "top_p": 0.95,
+                "prompt": prompt,
+                "max_length": 500,
+                "temperature": 0.8,
+                "repetition_penalty": 1
+            }
+        )
+        print("".join(output))
+        st.markdown("".join(output))
+
+        return "".join(output)
+
+    elif model == 'Gemini':
+
+        return gemini_response(prompt)
+
+        # llm = ChatGoogleGenerativeAI(model="gemini-pro", google_api_key=st.session_state['AUTH_KEY'])
+
+    elif model == 'OpenAI':
+        return gpt_response(prompt)
+
+    #     llm = OpenAI(openai_api_key=st.session_state['AUTH_KEY'])
+    #
+    # prompt = PromptTemplate.from_template(f"You are a helpful coding assistant.{prompt}")
+    #
+    # llm_chain = LLMChain(llm=llm, prompt=prompt, verbose=True)
+    #
+    # resp = llm_chain.run(topic=prompt)
+    #
+    # st.markdown(resp)
+
+    # return resp
+
+
 def process_swagger_json(swagger_json):
     swagger_result = {}
     for path, path_values in swagger_json.get('paths').items():
@@ -190,20 +254,30 @@ def main():
         with st.form(key="user_choices", clear_on_submit=False):
             print('inside user_choices form')
             llm_model = st.radio(label='Select LLM Model', options=['OpenAI', 'Gemini', 'LLAMA2'])
-            open_api_key = st.text_input("Enter LLM Auth Key", type="password")
-            test_type = st.selectbox("Test Type", ["API Tests", "Performance Tests", "UI Tests"])
-            st.session_state['framework'] = st.selectbox("Framework", ["Python Pytest", "Python Robot", "Karate", "Cypress", "K6"])
+            auth_key = st.text_input("Enter LLM Auth Key", type="password")
+            test_type = st.selectbox("Test Type", ["API Tests"])
+            st.session_state['framework'] = st.selectbox(
+                "Framework", ["Python Pytest", "Python Robot", "Karate", "Cypress", "K6", "Test NG"])
             uploaded_file = st.file_uploader("Choose Swagger JSON file")
             parse_apis_submitted = st.form_submit_button("Parse APIs")
 
         if parse_apis_submitted:
-            if not open_api_key:
+            if not auth_key:
                 st.error('Please enter your OpenAI API key!', icon='⚠')
                 # st.stop()
 
             if uploaded_file is None:
                 st.error('Swagger JSON Schema is mandatory to proceed!', icon="🚨")
                 st.stop()
+
+            if llm_model == 'LLAMA2':
+                if 'REPLICATE_API_TOKEN' not in st.session_state:
+                    st.session_state['REPLICATE_API_TOKEN'] = auth_key
+            else:
+                if 'AUTH_KEY' not in st.session_state:
+                    st.session_state['AUTH_KEY'] = auth_key
+            if 'llm_model' not in st.session_state:
+                st.session_state['llm_model'] = llm_model
 
     if uploaded_file is not None:
         with st.spinner('Processing JSON...'):
@@ -256,7 +330,8 @@ def main():
             resp_strings = []
             for each_selected_prompt in st.session_state.selected_prompt_names:
                 with st.spinner("Langchain"):
-                    resp = langchain_output(prompt=str(st.session_state[each_selected_prompt]))
+                    # resp = langchain_output(prompt=str(st.session_state[each_selected_prompt]))
+                    resp = generate_resp_from_llm(model=st.session_state['llm_model'], prompt=str(st.session_state[each_selected_prompt]))
                 st.write(f"Response for {each_selected_prompt}")
                 st.markdown(resp)
                 resp_strings.append(resp)

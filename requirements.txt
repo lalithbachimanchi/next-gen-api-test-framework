@@ -4,3 +4,9 @@ watchdog
 glom
 jinja2
 html2text
+langchain-google-genai
+langchain
+replicate
+langchain_openai
+replicate
+google-generativeai
